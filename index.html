@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Brewery Controller Script</title>
+</head>
+<body>
+  <script>
+    function update_prop() {   // This is an overloaded function!
+      var b = "";
+      var a, h, c, g, e = 0;
+      b += '<div id="outprop"><br><h3>Current State Properties</h3>';
+      b += '<table border="1" cellPadding="3px" width="600px"><tr class="s1"><td width="170">Outputs Asserted<br> in this State</td><td>Control Type</td><td width="130">Temp Probe<br>Association</td><td>Temperature <br>Setpoint ' + degrees + "</td></tr>";
+      for (var f = 0; f < MAXOUTS; f++) {
+          a = parseInt(ucstates[UCST_OUTSTYPE + f]);
+          if (a) {
+              h = (a == 1) ? "Direct " + ((ucstates[UCST_OUTSVAL + f] == 100) ? "On" : "Off") : (a == 2) ? ((ultemps[0]!=0) ? "<input type='button' value='+5%' onClick='dutycyclechg(" + f + ", cp, cs, 5);'><input type='button' value='-5%' onClick='dutycyclechg(" + f + ", cp, cs, -5);'><br>Duty Cycle " + ucstates[UCST_OUTSVAL + f] + "%" : "Duty Cycle " + ucstates[UCST_OUTSVAL + f] + "%") : (a == 3) ? "Hysteresis" : "PID";
+              c = (a <= 2) ? "N/A" : ((ultemps[0]!=0) ? "<input type='button' value='+1' onClick='tempsetpointchg(" + f + ", cp, cs, 1);'><input type='button' value='-1' onClick='tempsetpointchg(" + f + ", cp, cs, -1);'><input type='button' value='+5' onClick='tempsetpointchg(" + f + ", cp, cs, 5);'><input type='button' value='-5' onClick='tempsetpointchg(" + f + ", cp, cs, -5);'><br>" + (ulstates[ULST_PIDSET + f] / 10) : (ulstates[ULST_PIDSET + f] / 10));
+              g = (a <= 2) ? "N/A" : getTempAssn_alt(f);
+              b += '<tr class="s2"><td>Out' + f + ": " + sysnames[SN_OUT + f] + "</td><td>" + h + "</td><td>" + g + "</td><td>" + c + "</td></tr>";
+              e = 1
+          }
+      }
+      for (var d = 0; d < 4; d++) {
+          if (parseInt(ucsysios[UCIO_EXPDIGI + d])) {
+              b += '<tr class="s2"><td>DigiExp' + d + " Outputs</td><td>[0:11]=" + parseInt(ulstates[ULST_EXPDIGI + d]).toString(2) + "</td><td>N/A</td><td>N/A</td></tr>";
+              e = 1
+          }
+      }
+      if (e == 0) {
+          b += '<tr class="s2"><td>None</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>'
+      }
+      b += "</table></div>";
+      gid("setp").innerHTML = b
+    }
+    
+    function dutycyclechg(curpos, curp, curs, chgval) {
+      ucstates[UCST_OUTSVAL + curpos]=parseInt(ucstates[UCST_OUTSVAL + curpos])+chgval;
+      savestuff("ucstate", curp, curs, ucstates)
+    } 
+    
+    function tempsetpointchg(curpos, curp, curs, chgval) {  
+      ulstates[ULST_PIDSET + curpos]=parseInt(ulstates[ULST_PIDSET + curpos])+chgval*10;
+      savestuff("ulstate", curp, curs, ulstates)
+    }
+    
+    function drawSetpoint(c, b, g, gauge, scale)  // this is a new function to draw a setpoint indicator on the gauge
+    {
+      var e = Math.PI / 12;
+      var a = e / 10;
+      var tempSetPt = ultemps[ULTMP_SETP + gauge]/10;
+      var d = (tempSetPt == -409.6)? 0 : tempSetPt;
+      if (d==0) {return;}
+      var tempPt = ultemps[ULTMP_TMP + gauge] / 10;
+      var f = (tempPt == -409.6)? 0.0 : tempPt;
+      c.save();
+      c.translate(90 * scale, 95 * scale);
+      c.rotate(Math.PI + Math.PI / 8);
+      c.rotate((2 * Math.PI - Math.PI / 4) * (d - b) / (g - b));
+      c.beginPath();
+      c.lineWidth = 1;
+      c.strokeStyle = "#A0A0A0";
+      if (Math.abs(f-d) <=5 && Math.abs(f-d) >2)  // ECC came up with adding colors!
+      {
+        c.fillStyle = 'yellow';
+      }
+      else if (Math.abs(f-d) <=2)
+      {
+        c.fillStyle = 'lime';
+      }
+      else
+      {
+        c.fillStyle = 'red';
+      }
+      c.moveTo(0, -68 * scale);
+      c.lineTo(5 * scale, -77 * scale);
+      c.lineTo(-5 * scale, -77 * scale);
+      c.lineTo(0, -68 * scale);
+      c.fill();
+      //c.stroke();
+      c.closePath();
+      c.beginPath();
+      c.fillStyle = "#A0A0A0";
+      c.moveTo(5 * scale, -77 * scale);
+      c.lineTo(5 * scale, -80 * scale);
+      c.lineTo(-5 * scale, -80 * scale);
+      c.lineTo(-5 * scale, -77 * scale);
+      c.fill();
+      c.closePath();
+      c.restore();
+    }
+    
+    function draw_temp(a, h, j, b)  //overloaded this function to add drawSetpoint
+    {
+      var d = isNaN(j) ? 0 : j;
+      if (browserSupportsHTML5)
+    {
+      var g = (parseInt(ucsysios[UCIO_CELC]) == 1) ? -20 : 20;
+      var l = (parseInt(ucsysios[UCIO_CELC]) == 1) ? 120 : 220;
+      var e = (parseInt(ucsysios[UCIO_CELC]) == 1) ? 5 : 10;
+      var c = (parseInt(ucsysios[UCIO_CELC]) == 1) ? 2.5 : 2;
+      var k = document.getElementById("canvas" + a).getContext("2d");
+      k.save();
+      k.clearRect(0, 0, 180 * b, 200 * b);
+      var f = k.createRadialGradient(87 * b, 90 * b, 57 * b, 90 * b, 95 * b, 75 * b);
+      f.addColorStop(0, "#fafcff");
+      f.addColorStop(0.9, "#C0C0C0");
+      k.fillStyle = f;
+      k.arc(90 * b, 95 * b, 72 * b, 0, Math.PI * 2, true);
+      k.fill();
+      k.translate(90 * b, 95 * b);
+      k.restore();
+      drawTickMarks(k, g, l, c, e, b);
+      drawLabel(k, h, a, d, b);
+      drawPointer(k, g, l, d, b);
+      centerPin(k, b);
+      drawOuterBezel(k, b);
+      drawSetpoint(k, g, l, a, b);
+    }
+  }
+  </script>
+</body>
+</html>
